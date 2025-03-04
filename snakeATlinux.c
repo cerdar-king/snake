@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <ncurses.h>
 #include <time.h>
-#include <unistd.h>
+#include <stdarg.h>
 
 #define WIDTH 20
 #define HEIGHT 20
@@ -18,6 +18,62 @@ enum eDirection
     DOWN
 }; //  枚举方向
 enum eDirection dir; //  方向
+enum eColor
+{
+    GREEN = 1,
+    YELLOW,
+    RED,
+    BLUE
+}; //  枚举颜色
+enum eColor color; //  颜色
+
+// 定义一个函数来替换 usleep
+void sleep_ms(int milliseconds)
+{
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
+/*void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...) { //彩色画笔
+    va_list args;
+    va_start(args, fmt);
+    attron(COLOR_PAIR(color_pair));
+    mvprintw(x, y, fmt, args);
+    attroff(COLOR_PAIR(color_pair));
+    va_end(args);
+}*/
+
+// 彩色画笔函数，用于在指定位置以指定颜色绘制文本
+// 参数 color_pair: 颜色对编号，用于指定文本的颜色
+// 参数 x, y: 文本绘制的坐标位置，x 为行号，y 为列号
+// 参数 fmt: 格式字符串，描述文本的格式
+// ...: 可变参数列表，包含格式字符串中的具体值
+void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
+{
+    // 初始化可变参数列表
+    va_list args;
+    va_start(args, fmt);
+
+    // 设置文本颜色
+    attron(COLOR_PAIR(color_pair));
+
+    // 缓存区用于存储格式化后的文本
+    char buffer[256];
+
+    // 根据格式字符串和可变参数生成实际文本
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+    // 在指定位置绘制文本
+    mvprintw(x, y, "%s", buffer);
+
+    // 移除文本颜色设置，恢复默认颜色
+    attroff(COLOR_PAIR(color_pair));
+
+    // 解除可变参数列表的初始化
+    va_end(args);
+}
 
 void Setup()
 {                                   //  初始化
@@ -36,23 +92,29 @@ void Setup()
     timeout(100);                   //  设置getch()的等待时间
     curs_set(0);                    //  隐藏光标
     nTail = 0;                      //  初始化蛇的长度
+
+    // 初始化颜色对
+    init_pair(GREEN, COLOR_GREEN, COLOR_BLACK);
+    init_pair(YELLOW, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(RED, COLOR_RED, COLOR_BLACK);
+    init_pair(BLUE, COLOR_BLUE, COLOR_BLACK);
 }
 
 void Draw()
 {                                            //  画图
     clear();                                 //  清屏
     for (int i = 0; i < WIDTH + 2; i++)      //  画上边框
-        mvprintw( 0, i, "#"); //  移动光标到(0, i)位置，打印#
+        DrawColorMvprintw(GREEN, 0, i, "#"); //  移动光标到(0, i)位置，打印#
     for (int i = 0; i < HEIGHT + 2; i++)
     { //  画左右边框
         for (int j = 0; j < WIDTH + 2; j++)
         {
             if (j == 0)
-                mvprintw( i + 1, j, "#");
+                DrawColorMvprintw(GREEN, i + 1, j, "#");
             if (i == y && j == x)
-                mvprintw( i + 1, j + 1, "@");
+                DrawColorMvprintw(YELLOW, i + 1, j + 1, "@");
             else if (i == fruitY && j == fruitX)
-                mvprintw( i + 1, j + 1, "F");
+                DrawColorMvprintw(RED, i + 1, j + 1, "F");
             else
             {
                 int print = 0;
@@ -60,7 +122,7 @@ void Draw()
                 {
                     if (tailX[k] == j && tailY[k] == i)
                     {
-                        mvprintw( i + 1, j + 1, "o");
+                        DrawColorMvprintw(YELLOW, i + 1, j + 1, "o");
                         print = 1;
                     }
                 }
@@ -68,12 +130,12 @@ void Draw()
                     mvprintw(i + 1, j + 1, " ");
             }
             if (j == WIDTH)
-                mvprintw( i + 1, j + 1, "#");
+                DrawColorMvprintw(GREEN, i + 1, j + 1, "#");
         }
     }
     for (int i = 0; i < WIDTH + 2; i++) //  画下边框
-        mvprintw( HEIGHT + 1, i, "#");
-    mvprintw( HEIGHT + 2, 0, "Score: %d", score); //  打印分数
+        DrawColorMvprintw(GREEN, HEIGHT + 1, i, "#");
+    DrawColorMvprintw(BLUE, HEIGHT + 2, 0, "Score: %d", score); //  打印分数
     refresh();                                                  //  刷新屏幕
 }
 
@@ -148,10 +210,10 @@ void Logic()
         if (tailX[i] == x && tailY[i] == y)
         {
             clear();
-            mvprintw( HEIGHT / 2, (WIDTH - 10) / 2, "Game Over!");
-            mvprintw( HEIGHT / 2 + 1, (WIDTH - 10) / 2, "Score: %d", score);
+            DrawColorMvprintw(RED, HEIGHT / 2, (WIDTH - 10) / 2, "Game Over!");
+            DrawColorMvprintw(BLUE, HEIGHT / 2 + 1, (WIDTH - 10) / 2, "Score: %d", score);
             refresh();
-            mvprintw( HEIGHT / 2 + 2, (WIDTH - 10) / 2, "Press Enter to exit");
+            DrawColorMvprintw(GREEN, HEIGHT / 2 + 2, (WIDTH - 10) / 2, "Press Enter to exit");
             // sleep_ms(2000); // 显示2秒
             timeout(-1); // 等待用户输入
             refresh();
@@ -195,7 +257,10 @@ int main()
         Input();       // 输入
         Logic();       // 逻辑
 
-        usleep(100000); // 等待
+        //根据得分动态调整游戏速度
+        int speed = 80 - score / 10;
+        if (speed < 30) speed = 30;
+        sleep_ms(speed); // 等待
     }
     endwin(); // 结束
     return 0;
