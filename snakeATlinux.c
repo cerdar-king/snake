@@ -3,7 +3,7 @@
 #include <time.h>
 #include <stdarg.h>
 
-#define WIDTH 20
+#define WIDTH 40
 #define HEIGHT 20
 
 int x, y, fruitX, fruitY, score; //  x和y是蛇的头，fruitX和fruitY是水果，score是游戏的分数
@@ -20,12 +20,14 @@ enum eDirection
 enum eDirection dir; //  方向
 enum eColor
 {
-    GREEN = 1,
+    RED = 1,
+    GREEN,
     YELLOW,
-    RED,
-    BLUE
+    BLUE,
 }; //  枚举颜色
 enum eColor color; //  颜色
+
+int BACK_G = COLOR_WHITE ; //  背景颜色
 
 // 定义一个函数来替换 usleep
 void sleep_ms(int milliseconds)
@@ -86,6 +88,9 @@ void Setup()
     score = 0;                      //  初始化分数
     initscr();                      //  初始化屏幕
     start_color();                  //  开启颜色
+    
+    use_default_colors();           //  使用默认颜色
+
     clear();                        //  清屏
     noecho();                       //  输入不显示在屏幕上
     cbreak();                       //  禁用行缓冲
@@ -94,10 +99,10 @@ void Setup()
     nTail = 0;                      //  初始化蛇的长度
 
     // 初始化颜色对
-    init_pair(GREEN, COLOR_GREEN, COLOR_BLACK);
-    init_pair(YELLOW, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(RED, COLOR_RED, COLOR_BLACK);
-    init_pair(BLUE, COLOR_BLUE, COLOR_BLACK);
+    init_pair(GREEN, COLOR_GREEN, BACK_G);
+    init_pair(YELLOW, COLOR_YELLOW, BACK_G);
+    init_pair(RED, COLOR_RED, BACK_G);
+    init_pair(BLUE, COLOR_BLUE, BACK_G);
 }
 
 void Draw()
@@ -105,9 +110,9 @@ void Draw()
     clear();                                 //  清屏
     for (int i = 0; i < WIDTH + 2; i++)      //  画上边框
         DrawColorMvprintw(GREEN, 0, i, "#"); //  移动光标到(0, i)位置，打印#
-    for (int i = 0; i < HEIGHT + 2; i++)
+    for (int i = 0; i < HEIGHT + 1; i++)
     { //  画左右边框
-        for (int j = 0; j < WIDTH + 2; j++)
+        for (int j = 0; j < WIDTH + 1; j++)
         {
             if (j == 0)
                 DrawColorMvprintw(GREEN, i + 1, j, "#");
@@ -127,7 +132,7 @@ void Draw()
                     }
                 }
                 if (!print)
-                    mvprintw(i + 1, j + 1, " ");
+                    DrawColorMvprintw(YELLOW,i + 1, j + 1, " ");
             }
             if (j == WIDTH)
                 DrawColorMvprintw(GREEN, i + 1, j + 1, "#");
