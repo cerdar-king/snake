@@ -1,10 +1,14 @@
+#include <stdio.h>
+#include <string.h>
+
 #include <stdlib.h>
 #include <ncurses.h>
 #include <time.h>
 #include <stdarg.h>
 
-#define WIDTH 40
-#define HEIGHT 20
+int WIDTH = 40;//宽度
+int HEIGHT = 20;//高度
+int BACK_G = COLOR_WHITE;//背景颜色
 
 int x, y, fruitX, fruitY, score; //  x和y是蛇的头，fruitX和fruitY是水果，score是游戏的分数
 int tailX[100], tailY[100];      //  蛇的尾巴 x和y坐标
@@ -27,8 +31,6 @@ enum eColor
 }; //  枚举颜色
 enum eColor color; //  颜色
 
-int BACK_G = COLOR_WHITE ; //  背景颜色
-
 // 定义一个函数来替换 usleep
 void sleep_ms(int milliseconds)
 {
@@ -38,14 +40,6 @@ void sleep_ms(int milliseconds)
     nanosleep(&ts, NULL);
 }
 
-/*void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...) { //彩色画笔
-    va_list args;
-    va_start(args, fmt);
-    attron(COLOR_PAIR(color_pair));
-    mvprintw(x, y, fmt, args);
-    attroff(COLOR_PAIR(color_pair));
-    va_end(args);
-}*/
 
 // 彩色画笔函数，用于在指定位置以指定颜色绘制文本
 // 参数 color_pair: 颜色对编号，用于指定文本的颜色
@@ -75,6 +69,52 @@ void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
 
     // 解除可变参数列表的初始化
     va_end(args);
+}
+
+// 从配置文件读取宽度、高度和背景色
+void read_config(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Error opening config file");
+        return;
+    }
+
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        // 去掉换行符
+        line[strcspn(line, "\n")] = 0;
+
+        // 查找等号的位置
+        char *delimiter = strchr(line, '=');
+        if (delimiter) {
+            *delimiter = '\0'; // 将等号替换为字符串结束符
+            char *key = line;
+            char *value = delimiter + 1;
+
+            // 根据键名设置全局变量
+            if (strcmp(key, "WIDTH") == 0) {
+                WIDTH = atoi(value); // 转换为整数
+            } else if (strcmp(key, "HEIGHT") == 0) {
+                HEIGHT = atoi(value); // 转换为整数
+            } else if (strcmp(key, "BACK_G") == 0) {
+                if (strcmp(value, "COLOR_BLACK") == 0) {
+                    BACK_G = COLOR_BLACK;
+                } else if (strcmp(value, "COLOR_RED") == 0) {
+                    BACK_G = COLOR_RED;
+                } else if (strcmp(value, "COLOR_GREEN") == 0) {
+                    BACK_G = COLOR_GREEN;
+                } else if (strcmp(value, "COLOR_YELLOW") == 0) {
+                    BACK_G = COLOR_YELLOW;
+                } else if (strcmp(value, "COLOR_BLUE") == 0) {
+                    BACK_G = COLOR_BLUE;
+                } else if (strcmp(value, "COLOR_WHITE") == 0) {
+                    BACK_G = COLOR_WHITE;
+                }
+            }
+        }
+    }
+
+    fclose(file);
 }
 
 void Setup()
@@ -255,6 +295,8 @@ void Logic()
 
 int main()
 {
+    read_config("config.txt");
+    
     Setup(); // 初始化
     while (1)
     {                  // 游戏循环
