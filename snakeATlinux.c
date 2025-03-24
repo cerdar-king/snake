@@ -1,14 +1,14 @@
-#include <stdio.h>
-#include <string.h>
-
-#include <stdlib.h>
-#include <ncurses.h>
-#include <time.h>
-#include <stdarg.h>
+#include <stdio.h>    // 标准输入输出函数，如 printf、fopen、fread 等
+#include <string.h>   // 字符串操作函数，如 strchr、strcmp 等
+#include <stdlib.h>   // 通用工具函数，如 rand、srand、exit 等
+#include <ncurses.h>  // ncurses 库函数，用于终端界面绘制
+#include <time.h>     // 时间相关函数，如 time、nanosleep 等
+#include <stdarg.h>   // 可变参数处理函数，如 va_list、va_start、va_end 等
 
 int WIDTH = 40;//宽度
 int HEIGHT = 20;//高度
 int BACK_G = COLOR_WHITE;//背景颜色
+int SPEED = 150;//初生后的初始速度
 
 int x, y, fruitX, fruitY, score; //  x和y是蛇的头，fruitX和fruitY是水果，score是游戏的分数
 int tailX[100], tailY[100];      //  蛇的尾巴 x和y坐标
@@ -72,7 +72,7 @@ void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
 }
 
 // 从配置文件读取宽度、高度和背景色
-void read_config(const char *filename) {
+/*void read_config(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         perror("Error opening config file");
@@ -115,6 +115,28 @@ void read_config(const char *filename) {
     }
 
     fclose(file);
+}*/
+/*void read_config(const char *filename) {
+    FILE *file = fopen(filename, "r");
+
+    if (file) {
+        fscanf(file,"%d %d %d",&WIDTH,&HEIGHT,&BACK_G);
+        fclose(file);        
+    }else{
+        printf("Error opening config file\n");
+    }
+    return;
+}*/
+void read_config(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if(file){
+        size_t len = fread(&WIDTH,sizeof(int),1,file);
+        len = fread(&HEIGHT,sizeof(int),1,file);
+        len = fread(&BACK_G,sizeof(int),1,file);
+        fclose(file);
+    }else{
+        printf("Error opening config file\n");
+    } return;
 }
 
 void Setup()
@@ -134,7 +156,7 @@ void Setup()
     clear();                        //  清屏
     noecho();                       //  输入不显示在屏幕上
     cbreak();                       //  禁用行缓冲
-    timeout(100);                   //  设置getch()的等待时间
+    nodelay(stdscr, TRUE);          // 设置非阻塞输入模式
     curs_set(0);                    //  隐藏光标
     nTail = 0;                      //  初始化蛇的长度
 
@@ -143,6 +165,7 @@ void Setup()
     init_pair(YELLOW, COLOR_YELLOW, BACK_G);
     init_pair(RED, COLOR_RED, BACK_G);
     init_pair(BLUE, COLOR_BLUE, BACK_G);
+    
 }
 
 void Draw()
@@ -186,24 +209,27 @@ void Draw()
 
 void Input()
 { //  输入
-    int c = getch();
-    switch (c)
+    int c ; 
+    while ((c = getch()) != ERR) // 循环读取输入，清空缓冲区
     {
-    case 'a':
-        dir = LEFT; //  输入a，蛇向左移动
-        break;
-    case 'd':
-        dir = RIGHT;
-        break;
-    case 'w':
-        dir = UP;
-        break;
-    case 's':
-        dir = DOWN;
-        break;
-    case 'x':
-        endwin();
-        exit(0);
+        switch (c)
+        {
+        case 'a':
+            /*if (dir != RIGHT)*/ dir = LEFT; // 防止蛇反向移动
+            break;
+        case 'd':
+            /*if (dir != LEFT)*/ dir = RIGHT;
+            break;
+        case 'w':
+            /*if (dir != DOWN)*/ dir = UP;
+            break;
+        case 's':
+            /*if (dir != UP)*/ dir = DOWN;
+            break;
+        case 'x':
+            endwin();
+            exit(0);
+        }
     }
 }
 
@@ -214,6 +240,7 @@ void Logic()
     int prev2X, prev2Y;   //  记录蛇尾的位置
     tailX[0] = x;         //  更新蛇尾的位置
     tailY[0] = y;         //  更新蛇尾的位置
+    //  更新蛇尾的位置
     for (int i = 1; i < nTail; i++)
     {                      //  更新蛇的位置
         prev2X = tailX[i]; //  记录蛇尾的位置
@@ -223,6 +250,8 @@ void Logic()
         prevX = prev2X;
         prevY = prev2Y;
     }
+
+    // 根据方向更新蛇头的位置
     switch (dir)
     {
     case LEFT:
@@ -241,6 +270,7 @@ void Logic()
         break;
     }
 
+    // 如果蛇头碰到边界，从另一边出来
     if (x >= WIDTH)
         x = 0;
     else if (x < 0)
@@ -250,7 +280,8 @@ void Logic()
     else if (y < 0)
         y = HEIGHT - 1;
 
-    for (int i = 0; i < nTail; i++)
+    // 如果蛇头碰到蛇身，游戏结束
+        for (int i = 0; i < nTail; i++)
     {
         if (tailX[i] == x && tailY[i] == y)
         {
@@ -270,6 +301,7 @@ void Logic()
         }
     }
 
+    // 如果蛇头碰到水果，增加分数，并生成新的水果位置
     if (x == fruitX && y == fruitY)
     {
         score += 10;
@@ -295,7 +327,7 @@ void Logic()
 
 int main()
 {
-    read_config("config.txt");
+    read_config("data.bin");
     
     Setup(); // 初始化
     while (1)
@@ -305,7 +337,7 @@ int main()
         Logic();       // 逻辑
 
         //根据得分动态调整游戏速度
-        int speed = 80 - score / 10;
+        int speed = SPEED - score / 10;
         if (speed < 30) speed = 30;
         sleep_ms(speed); // 等待
     }
