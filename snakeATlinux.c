@@ -1,14 +1,14 @@
-#include <stdio.h>    // 标准输入输出函数，如 printf、fopen、fread 等
-#include <string.h>   // 字符串操作函数，如 strchr、strcmp 等
-#include <stdlib.h>   // 通用工具函数，如 rand、srand、exit 等
-#include <ncurses.h>  // ncurses 库函数，用于终端界面绘制
-#include <time.h>     // 时间相关函数，如 time、nanosleep 等
-#include <stdarg.h>   // 可变参数处理函数，如 va_list、va_start、va_end 等
+#include <stdio.h>   // 标准输入输出函数，如 printf、fopen、fread 等
+#include <string.h>  // 字符串操作函数，如 strchr、strcmp 等
+#include <stdlib.h>  // 通用工具函数，如 rand、srand、exit 等
+#include <ncurses.h> // ncurses 库函数，用于终端界面绘制
+#include <time.h>    // 时间相关函数，如 time、nanosleep 等
+#include <stdarg.h>  // 可变参数处理函数，如 va_list、va_start、va_end 等
 
-int WIDTH = 40;//宽度
-int HEIGHT = 20;//高度
-int BACK_G = COLOR_WHITE;//背景颜色
-int SPEED = 150;//初生后的初始速度
+int WIDTH = 40;           // 宽度
+int HEIGHT = 20;          // 高度
+int BACK_G = COLOR_WHITE; // 背景颜色
+int SPEED = 150;          // 初生后的初始速度
 
 int x, y, fruitX, fruitY, score; //  x和y是蛇的头，fruitX和fruitY是水果，score是游戏的分数
 int tailX[100], tailY[100];      //  蛇的尾巴 x和y坐标
@@ -22,14 +22,14 @@ enum eDirection
     DOWN
 }; //  枚举方向
 enum eDirection dir; //  方向
-enum eColor
+enum eRole
 {
-    RED = 1,
-    GREEN,
-    YELLOW,
-    BLUE,
-}; //  枚举颜色
-enum eColor color; //  颜色
+    SNAKE = 1,
+    WALL,
+    FLOWER,
+    SCORE,
+}; //  枚举角色颜色
+enum eRole color; //  角色颜色
 
 // 定义一个函数来替换 usleep
 void sleep_ms(int milliseconds)
@@ -39,7 +39,6 @@ void sleep_ms(int milliseconds)
     ts.tv_nsec = (milliseconds % 1000) * 1000000;
     nanosleep(&ts, NULL);
 }
-
 
 // 彩色画笔函数，用于在指定位置以指定颜色绘制文本
 // 参数 color_pair: 颜色对编号，用于指定文本的颜色
@@ -101,8 +100,8 @@ void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
                     BACK_G = COLOR_BLACK;
                 } else if (strcmp(value, "COLOR_RED") == 0) {
                     BACK_G = COLOR_RED;
-                } else if (strcmp(value, "COLOR_GREEN") == 0) {
-                    BACK_G = COLOR_GREEN;
+                } else if (strcmp(value, "COLOR_WALL") == 0) {
+                    BACK_G = COLOR_WALL;
                 } else if (strcmp(value, "COLOR_YELLOW") == 0) {
                     BACK_G = COLOR_YELLOW;
                 } else if (strcmp(value, "COLOR_BLUE") == 0) {
@@ -121,68 +120,135 @@ void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
 
     if (file) {
         fscanf(file,"%d %d %d",&WIDTH,&HEIGHT,&BACK_G);
-        fclose(file);        
+        fclose(file);
     }else{
         printf("Error opening config file\n");
     }
     return;
 }*/
-void read_config(const char *filename) {
+void read_config(const char *filename)
+{
     FILE *file = fopen(filename, "r");
-    if(file){
-        size_t len = fread(&WIDTH,sizeof(int),1,file);
-        len = fread(&HEIGHT,sizeof(int),1,file);
-        len = fread(&BACK_G,sizeof(int),1,file);
+    if (file)
+    {
+        size_t len = fread(&WIDTH, sizeof(int), 1, file);
+        len = fread(&HEIGHT, sizeof(int), 1, file);
+        len = fread(&BACK_G, sizeof(int), 1, file);
         fclose(file);
-    }else{
+    }
+    else
+    {
         printf("Error opening config file\n");
-    } return;
+    }
+    return;
+}
+
+// 生成水果
+void generateFruit()
+{
+    srand(time(NULL));
+    int validPosition = 0;
+    while (!validPosition)
+    {
+        fruitX = rand() % (WIDTH - 1);
+        fruitY = rand() % (HEIGHT - 1);
+        validPosition = 1;
+        for (int i = 0; i < nTail; i++)
+        {
+            if (tailX[i] == fruitX && tailY[i] == fruitY)
+            {
+                validPosition = 0;
+                break;
+            }
+        }
+    }
 }
 
 void Setup()
-{                                   //  初始化
-    dir = STOP;                     //  初始方向为停止
-    x = WIDTH / 2;                  //  蛇头的初始位置
-    y = HEIGHT / 2;                 //  蛇头的初始位置
-    srand(time(NULL));              //  随机数种子
-    fruitX = rand() % (WIDTH - 1);  //  随机生成水果的位置
-    fruitY = rand() % (HEIGHT - 1); //  随机生成水果的位置
-    score = 0;                      //  初始化分数
-    initscr();                      //  初始化屏幕
-    start_color();                  //  开启颜色
-    
-    use_default_colors();           //  使用默认颜色
+{ //  游戏初始化
 
-    clear();                        //  清屏
-    noecho();                       //  输入不显示在屏幕上
-    cbreak();                       //  禁用行缓冲
-    nodelay(stdscr, TRUE);          // 设置非阻塞输入模式
-    curs_set(0);                    //  隐藏光标
-    nTail = 0;                      //  初始化蛇的长度
+    // 初始化游戏内容
+    dir = STOP;      //  初始方向为停止
+    x = WIDTH / 2;   //  蛇头的初始位置
+    y = HEIGHT / 2;  //  蛇头的初始位置
+    nTail = 0;       //  初始化蛇的长度
+    generateFruit(); //  生成水果
+    score = 0;       //  初始化分数
 
-    // 初始化颜色对
-    init_pair(GREEN, COLOR_GREEN, BACK_G);
-    init_pair(YELLOW, COLOR_YELLOW, BACK_G);
-    init_pair(RED, COLOR_RED, BACK_G);
-    init_pair(BLUE, COLOR_BLUE, BACK_G);
-    
+    // 初始化屏幕
+    initscr(); //  初始化屏幕
+
+    start_color();        //  开启颜色
+    use_default_colors(); //  使用默认颜色
+    clear();              //  清屏
+    curs_set(0);          //  隐藏光标
+    noecho();             //  输入不显示在屏幕上
+
+    // 初始化游戏输入
+    cbreak();              //  禁用行缓冲
+    nodelay(stdscr, TRUE); // 设置非阻塞输入模式
+
+    // 根据不同的背景颜色，初始化角色颜色对
+    switch (BACK_G)
+    {
+    case COLOR_BLACK:
+        init_pair(SNAKE, COLOR_YELLOW, BACK_G);
+        init_pair(WALL, COLOR_GREEN, BACK_G);
+        init_pair(FLOWER, COLOR_RED, BACK_G);
+        init_pair(SCORE, COLOR_WHITE, BACK_G);
+        break;
+    case COLOR_RED:
+        init_pair(SNAKE, COLOR_YELLOW, BACK_G);
+        init_pair(WALL, COLOR_BLACK, BACK_G);
+        init_pair(FLOWER, COLOR_BLUE, BACK_G);
+        init_pair(SCORE, COLOR_WHITE, BACK_G);
+        break;
+    case COLOR_GREEN:
+        init_pair(SNAKE, COLOR_YELLOW, BACK_G);
+        init_pair(WALL, COLOR_BLACK, BACK_G);
+        init_pair(FLOWER, COLOR_RED, BACK_G);
+        init_pair(SCORE, COLOR_WHITE, BACK_G);
+        break;
+    case COLOR_YELLOW:
+        init_pair(SNAKE, COLOR_GREEN, BACK_G);
+        init_pair(WALL, COLOR_BLACK, BACK_G);
+        init_pair(FLOWER, COLOR_RED, BACK_G);
+        init_pair(SCORE, COLOR_WHITE, BACK_G);
+        break;
+    case COLOR_BLUE:
+        init_pair(SNAKE, COLOR_YELLOW, BACK_G);
+        init_pair(WALL, COLOR_BLACK, BACK_G);
+        init_pair(FLOWER, COLOR_RED, BACK_G);
+        init_pair(SCORE, COLOR_WHITE, BACK_G);
+        break;
+    case COLOR_WHITE:
+        init_pair(SNAKE, COLOR_YELLOW, BACK_G);
+        init_pair(WALL, COLOR_BLACK, BACK_G);
+        init_pair(FLOWER, COLOR_RED, BACK_G);
+        init_pair(SCORE, COLOR_BLUE, BACK_G);
+        break;
+    default:
+        perror("Error color configed in data.bin");
+        endwin();
+        exit(1);
+    }
 }
 
 void Draw()
-{                                            //  画图
-    clear();                                 //  清屏
-    for (int i = 0; i < WIDTH + 2; i++)      //  画上边框
-        DrawColorMvprintw(GREEN, 0, i, "#"); //  移动光标到(0, i)位置，打印#
+{                                           //  画图
+    clear();                                //  清屏
+    for (int i = 0; i < WIDTH + 2; i++)     //  画上边框
+        DrawColorMvprintw(WALL, 0, i, "#"); //  移动光标到(0, i)位置，打印#
     for (int i = 0; i < HEIGHT + 1; i++)
     { //  画左右边框
         for (int j = 0; j < WIDTH + 1; j++)
         {
             if (j == 0)
-                DrawColorMvprintw(GREEN, i + 1, j, "#");
+                DrawColorMvprintw(WALL, i + 1, j, "#");
             if (i == y && j == x)
-                DrawColorMvprintw(YELLOW, i + 1, j + 1, "@");
+                DrawColorMvprintw(SNAKE, i + 1, j + 1, "@");
             else if (i == fruitY && j == fruitX)
-                DrawColorMvprintw(RED, i + 1, j + 1, "F");
+                DrawColorMvprintw(FLOWER, i + 1, j + 1, "F");
             else
             {
                 int print = 0;
@@ -190,41 +256,45 @@ void Draw()
                 {
                     if (tailX[k] == j && tailY[k] == i)
                     {
-                        DrawColorMvprintw(YELLOW, i + 1, j + 1, "o");
+                        DrawColorMvprintw(SNAKE, i + 1, j + 1, "o");
                         print = 1;
                     }
                 }
                 if (!print)
-                    DrawColorMvprintw(YELLOW,i + 1, j + 1, " ");
+                    DrawColorMvprintw(SNAKE, i + 1, j + 1, " ");
             }
             if (j == WIDTH)
-                DrawColorMvprintw(GREEN, i + 1, j + 1, "#");
+                DrawColorMvprintw(WALL, i + 1, j + 1, "#");
         }
     }
     for (int i = 0; i < WIDTH + 2; i++) //  画下边框
-        DrawColorMvprintw(GREEN, HEIGHT + 1, i, "#");
-    DrawColorMvprintw(BLUE, HEIGHT + 2, 0, "Score: %d", score); //  打印分数
-    refresh();                                                  //  刷新屏幕
+        DrawColorMvprintw(WALL, HEIGHT + 1, i, "#");
+    DrawColorMvprintw(SCORE, HEIGHT + 2, 0, "Score: %d", score); //  打印分数
+    refresh();                                                   //  刷新屏幕
 }
 
 void Input()
 { //  输入
-    int c ; 
+    int c;
     while ((c = getch()) != ERR) // 循环读取输入，清空缓冲区
     {
         switch (c)
         {
         case 'a':
-            if (dir != RIGHT) dir = LEFT; // 防止蛇反向移动
+            if (dir != RIGHT)
+                dir = LEFT; // 防止蛇反向移动
             break;
         case 'd':
-            if (dir != LEFT) dir = RIGHT;
+            if (dir != LEFT)
+                dir = RIGHT;
             break;
         case 'w':
-            if (dir != DOWN) dir = UP;
+            if (dir != DOWN)
+                dir = UP;
             break;
         case 's':
-            if (dir != UP) dir = DOWN;
+            if (dir != UP)
+                dir = DOWN;
             break;
         case 'x':
             endwin();
@@ -281,15 +351,15 @@ void Logic()
         y = HEIGHT - 1;
 
     // 如果蛇头碰到蛇身，游戏结束
-        for (int i = 0; i < nTail; i++)
+    for (int i = 0; i < nTail; i++)
     {
         if (tailX[i] == x && tailY[i] == y)
         {
             clear();
-            DrawColorMvprintw(RED, HEIGHT / 2, (WIDTH - 10) / 2, "Game Over!");
-            DrawColorMvprintw(BLUE, HEIGHT / 2 + 1, (WIDTH - 10) / 2, "Score: %d", score);
+            DrawColorMvprintw(SNAKE, HEIGHT / 2, (WIDTH - 10) / 2, "Game Over!");
+            DrawColorMvprintw(SCORE, HEIGHT / 2 + 1, (WIDTH - 10) / 2, "Score: %d", score);
             refresh();
-            DrawColorMvprintw(GREEN, HEIGHT / 2 + 2, (WIDTH - 10) / 2, "Press Enter to exit");
+            DrawColorMvprintw(FLOWER, HEIGHT / 2 + 2, (WIDTH - 10) / 2, "Press Enter to exit");
             // sleep_ms(2000); // 显示2秒
             timeout(-1); // 等待用户输入
             refresh();
@@ -306,21 +376,7 @@ void Logic()
     {
         score += 10;
         // 确保水果的位置不与蛇的位置重叠
-        int validPosition = 0;
-        while (!validPosition)
-        {
-            fruitX = rand() % (WIDTH - 1);
-            fruitY = rand() % (HEIGHT - 1);
-            validPosition = 1;
-            for (int i = 0; i < nTail; i++)
-            {
-                if (tailX[i] == fruitX && tailY[i] == fruitY)
-                {
-                    validPosition = 0;
-                    break;
-                }
-            }
-        }
+        generateFruit();
         nTail++;
     }
 }
@@ -328,17 +384,18 @@ void Logic()
 int main()
 {
     read_config("data.bin");
-    
+
     Setup(); // 初始化
     while (1)
-    {                  // 游戏循环
-        Draw();        // 画图
-        Input();       // 输入
-        Logic();       // 逻辑
+    {            // 游戏循环
+        Draw();  // 画图
+        Input(); // 输入
+        Logic(); // 逻辑
 
-        //根据得分动态调整游戏速度
+        // 根据得分动态调整游戏速度
         int speed = SPEED - score / 10;
-        if (speed < 30) speed = 30;
+        if (speed < 30)
+            speed = 30;
         sleep_ms(speed); // 等待
     }
     endwin(); // 结束
