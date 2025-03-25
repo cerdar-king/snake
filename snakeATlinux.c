@@ -215,16 +215,16 @@ void Input()
         switch (c)
         {
         case 'a':
-            /*if (dir != RIGHT)*/ dir = LEFT; // 防止蛇反向移动
+            if (dir != RIGHT) dir = LEFT; // 防止蛇反向移动
             break;
         case 'd':
-            /*if (dir != LEFT)*/ dir = RIGHT;
+            if (dir != LEFT) dir = RIGHT;
             break;
         case 'w':
-            /*if (dir != DOWN)*/ dir = UP;
+            if (dir != DOWN) dir = UP;
             break;
         case 's':
-            /*if (dir != UP)*/ dir = DOWN;
+            if (dir != UP) dir = DOWN;
             break;
         case 'x':
             endwin();
