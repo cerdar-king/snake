@@ -15,18 +15,31 @@ int SPEED = 150;          // 初生后的初始速度
 // int nTail;                       //  蛇的长度
 
 // 定义方向枚举，用于表示不同方向
-enum eDirection
+typedef enum eDirection
 {
-    STOP = 0, // 停止
-    LEFT,     // 左
-    RIGHT,    // 右
-    UP,       // 上
-    DOWN      // 下
-}; //  枚举方向
-enum eDirection dir; //  方向变量，用于存储当前方向
+    STOP = 0,        // 停止
+    LEFT,            // 左
+    RIGHT,           // 右
+    UP,              // 上
+    DOWN             // 下
+} eDirection;        //  枚举方向
+eDirection role_dir; //  方向变量，用于存储当前方向
+
+typedef enum eColor
+{
+    Role_COLOR_BLACK = 1, // 黑色
+    Role_COLOR_RED,       // 蓝色
+    Role_COLOR_GREEN,     // 青色
+    Role_COLOR_YELLOW,    // 绿色
+    Role_COLOR_BLUE,      // 红色
+    Role_COLOR_MAGENTA,   // 紫色
+    Role_COLOR_CYAN,      // 黄色
+    Role_COLOR_WHITE      // 白色
+} eColor;
+eColor role_color; // 颜色对编号，用于存储当前颜色
 
 // 定义角色颜色枚举，用于表示游戏中不同元素的颜色
-enum eRole
+typedef enum eRole
 {
     SNAKE_HEAD = 1, // 蛇头
     SNAKE_TAIL,     // 蛇尾
@@ -34,10 +47,17 @@ enum eRole
     FLOWER,         // 花
     SCORE,          // 分数
     STRMESSAGE      //  字符串信息
-}; //  枚举角色颜色
-enum eRole color; // 角色颜色对编号，用于存储当前角色的颜色
+} eRole;            //  枚举角色颜色
+eRole role_name;    // 角色颜色对编号，用于存储当前角色的颜色
 
-// enum eRole show_like;// 角色分类名称
+typedef enum eValueMode
+{
+    VALUE_MODE_INT,    // 整数模式
+    VALUE_MODE_CHAR,   // 字符模式
+    VALUE_MODE_STR,    // 字符串模式
+    VALUE_MODE_FLOAT,  // 浮点数模式
+} eValueMode;          //  枚举值模式
+eValueMode value_mode; //  值模式，用于存储当前值的模式
 
 // 定义角色结构体，用于表示游戏中角色的位置和显示颜色
 typedef struct Role
@@ -45,28 +65,29 @@ typedef struct Role
     bool is_show;          // 角色是否显示
     int x;                 // 角色的x坐标(不包括边界)
     int y;                 // 角色的y坐标(不包括边界)
-    enum eRole name;       // 角色的类型
-    enum eRole color;                 // 角色的颜色
+    int name;              // 角色的类型
+    int color;             // 角色的颜色
+    int dir;               // 角色的方向
+    int value_mode;        // 角色值的模式
     int value;             // 角色的值
     char role_message[50]; // 角色的信息
 } ROLE;
 
 // 定义蛇头的角色，初始化位置为 (0,0)，类型为 SNAKE_HEAD
-ROLE snake_head = {true, 0, 0, SNAKE_HEAD,SNAKE_HEAD, '@'};
+ROLE snake_head = {true, 0, 0, SNAKE_HEAD, Role_COLOR_YELLOW, STOP, VALUE_MODE_CHAR, '@', ""};
 // 定义蛇身的角色数组，每个元素代表一个蛇身部分的位置和类型
 // 使用 GCC 的扩展语法，统一初始化所有蛇身部分的位置为 (0,0)，类型为 SNAKE_TAIL
 ROLE snake_tail[100] = {
-    [0 ... 99] = {true, 0, 0, SNAKE_TAIL,SNAKE_TAIL, 'O'}};
+    [0 ... 99] = {true, 0, 0, SNAKE_TAIL, Role_COLOR_YELLOW, STOP, VALUE_MODE_CHAR, 'O', ""}};
 
 // 定义墙壁的角色，初始化位置为 (0,0)，类型为 WALL
-ROLE wall = {true, 0, 0, WALL,WALL, '#'};
+ROLE wall = {true, 0, 0, WALL, Role_COLOR_GREEN, STOP, VALUE_MODE_CHAR, '#', ""};
 
 // 定义花朵的角色，初始化位置为 (0,0)，类型为 FLOWER
-ROLE flower = {true, 0, 0, FLOWER,FLOWER, 'F'};
+ROLE flower = {true, 0, 0, FLOWER, Role_COLOR_RED, STOP, VALUE_MODE_CHAR, 'F', ""};
 
 // 定义游戏分数角色，初始化位置为 (0,0)，类型为 SCORE
-ROLE score = {true, 0, 0, SCORE,SCORE, 0};
-// ROLE strmessage = {false,0, 0, STRMESSAGE, 0," "};
+ROLE score = {true, 0, 0, SCORE, Role_COLOR_WHITE, STOP, VALUE_MODE_INT, 0, "Score:"};
 
 int nTail;
 
@@ -192,7 +213,7 @@ void Setup()
 { //  游戏初始化
 
     // 初始化游戏内容
-    dir = STOP;                      //  初始方向为停止
+    snake_head.dir = STOP;           //  初始方向为停止
     snake_head.x = (WIDTH - 2) / 2;  //  蛇头的初始位置
     snake_head.y = (HEIGHT - 2) / 2; //  蛇头的初始位置
     nTail = 0;                       //  初始化蛇的长度
@@ -215,67 +236,20 @@ void Setup()
     nodelay(stdscr, TRUE); // 设置非阻塞输入模式
 
     // 根据不同的背景颜色，初始化角色颜色对
-    switch (BACK_G)
-    {
-    case COLOR_BLACK:
-        init_pair(SNAKE_HEAD, COLOR_YELLOW, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_YELLOW, BACK_G);
-        init_pair(WALL, COLOR_GREEN, BACK_G);
-        init_pair(FLOWER, COLOR_RED, BACK_G);
-        init_pair(SCORE, COLOR_WHITE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    case COLOR_RED:
-        init_pair(SNAKE_HEAD, COLOR_YELLOW, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_YELLOW, BACK_G);
-        init_pair(WALL, COLOR_BLACK, BACK_G);
-        init_pair(FLOWER, COLOR_BLUE, BACK_G);
-        init_pair(SCORE, COLOR_WHITE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    case COLOR_GREEN:
-        init_pair(SNAKE_HEAD, COLOR_YELLOW, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_YELLOW, BACK_G);
-        init_pair(WALL, COLOR_BLACK, BACK_G);
-        init_pair(FLOWER, COLOR_RED, BACK_G);
-        init_pair(SCORE, COLOR_WHITE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    case COLOR_YELLOW:
-        init_pair(SNAKE_HEAD, COLOR_BLACK, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_BLACK, BACK_G);
-        init_pair(WALL, COLOR_BLACK, BACK_G);
-        init_pair(FLOWER, COLOR_RED, BACK_G);
-        init_pair(SCORE, COLOR_WHITE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    case COLOR_BLUE:
-        init_pair(SNAKE_HEAD, COLOR_YELLOW, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_YELLOW, BACK_G);
-        init_pair(WALL, COLOR_BLACK, BACK_G);
-        init_pair(FLOWER, COLOR_RED, BACK_G);
-        init_pair(SCORE, COLOR_WHITE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    case COLOR_WHITE:
-        init_pair(SNAKE_HEAD, COLOR_YELLOW, BACK_G);
-        init_pair(SNAKE_TAIL, COLOR_YELLOW, BACK_G);
-        init_pair(WALL, COLOR_BLACK, BACK_G);
-        init_pair(FLOWER, COLOR_RED, BACK_G);
-        init_pair(SCORE, COLOR_BLUE, BACK_G);
-        init_pair(STRMESSAGE, COLOR_YELLOW, BACK_G);
-        break;
-    default:
-        // perror("Error color configed in data.bin");
-        // endwin();
-        // exit(1);
-        Over("Error color configed in data.bin", 1);
-    }
+    init_pair(Role_COLOR_BLACK, COLOR_BLACK, BACK_G);
+    init_pair(Role_COLOR_RED, COLOR_RED, BACK_G);
+    init_pair(Role_COLOR_GREEN, COLOR_GREEN, BACK_G);
+    init_pair(Role_COLOR_YELLOW, COLOR_YELLOW, BACK_G);
+    init_pair(Role_COLOR_BLUE, COLOR_BLUE, BACK_G);
+    init_pair(Role_COLOR_WHITE, COLOR_WHITE, BACK_G);
+    init_pair(Role_COLOR_MAGENTA, COLOR_MAGENTA, BACK_G);
+    init_pair(Role_COLOR_CYAN, COLOR_CYAN, BACK_G);
+
     ImageBoard_init();
 }
 void ImageBoard_init()
 {
-    ImageF = (ImageBoard *)calloc(WIDTH * (HEIGHT + 1), sizeof(ImageBoard *));
+    ImageF = (ImageBoard *)calloc(WIDTH * (HEIGHT + 1), sizeof(ImageBoard));
     if (ImageF == NULL)
     {
         // perror("Memory allocation failed");
@@ -311,33 +285,24 @@ void ImageBoard_Draw_role(ROLE *point) // 按照ROLE结构体中的位置,颜色
 
     if (point->is_show == true)
     {
-        switch (point->name)
+        switch (point->value_mode)
         {
-        case SNAKE_HEAD:
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->name;
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
-            break;
-        case SNAKE_TAIL:
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->name;
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
-            break;
-        case WALL:
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->name;
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
-            break;
-        case FLOWER:
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->name;
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
-            break;
-        case SCORE:
-            sprintf(point->role_message, "Score:%d", point->value);
-            for (int i = 0; i < strlen(point->role_message); i++)
+        case VALUE_MODE_INT:
+            int len = snprintf(NULL, 0, "%s%d", point->role_message, point->value);
+            char *str = (char *)malloc(len + 1);
+            snprintf(str, len + 1, "%s%d", point->role_message, point->value);
+            for (int i = 0; i < strlen(str); i++)
             {
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].color = point->name;
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].pixel = point->role_message[i];
+                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].color = point->color;
+                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].pixel = str[i];
             }
+            free(str);
             break;
-        case STRMESSAGE:
+        case VALUE_MODE_CHAR:
+            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->color;
+            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
+            break;
+        case VALUE_MODE_STR:
             for (int i = 0; i < strlen(point->role_message); i++)
             {
                 ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].color = point->color;
@@ -391,20 +356,20 @@ void Input()
         switch (c)
         {
         case 'a':
-            if (dir != RIGHT)
-                dir = LEFT; // 防止蛇反向移动
+            if (snake_head.dir != RIGHT)
+                snake_head.dir = LEFT; // 防止蛇反向移动
             break;
         case 'd':
-            if (dir != LEFT)
-                dir = RIGHT;
+            if (snake_head.dir != LEFT)
+                snake_head.dir = RIGHT;
             break;
         case 'w':
-            if (dir != DOWN)
-                dir = UP;
+            if (snake_head.dir != DOWN)
+                snake_head.dir = UP;
             break;
         case 's':
-            if (dir != UP)
-                dir = DOWN;
+            if (snake_head.dir != UP)
+                snake_head.dir = DOWN;
             break;
         case 'x':
             Over("Bye Bye!", 0);
@@ -433,7 +398,7 @@ void Logic()
     }
 
     // 根据方向更新蛇头的位置
-    switch (dir)
+    switch (snake_head.dir)
     {
     case LEFT:
         snake_head.x--;
@@ -538,6 +503,7 @@ void generateFruit()
         }
     }
 }
+
 void Over(const char *message, int exit_code)
 {
     // 清空绘图板
@@ -548,25 +514,24 @@ void Over(const char *message, int exit_code)
     // 在窗口中显示退出信息
     if (message != NULL)
     {
-        ROLE strmessage_message = {true, 0, 0, STRMESSAGE,SNAKE_HEAD, 0, " "};
-        strmessage_message.x = (WIDTH - 2 - strlen(message)) / 2;
-        strmessage_message.y = (HEIGHT - 1) / 2 - 3; // 居中显示消息
+        ROLE strmessage_message = {true, 0, 0, STRMESSAGE, Role_COLOR_YELLOW, STOP, VALUE_MODE_STR, 0, ""};
+        strmessage_message.x = (WIDTH - 4 - strlen(message)) / 2;
+        strmessage_message.y = (HEIGHT - 1) / 2 - 3; // 消息在屏幕中间
         strcpy(strmessage_message.role_message, message);
         ImageBoard_Draw_role(&strmessage_message);
     }
 
-    ROLE strmessage_score = {true, 0, 0, STRMESSAGE,FLOWER, 0, " "};
-    sprintf(strmessage_score.role_message, "Your score is %d", score.value);
-    strmessage_score.x = (WIDTH - 2 - strlen(strmessage_score.role_message)) / 2;
-    strmessage_score.y = (HEIGHT - 1) / 2-1; // 分数在消息下方
+    ROLE strmessage_score = {true, 0, 0, SCORE, Role_COLOR_RED, STOP, VALUE_MODE_INT, score.value, "Score:"};
+    strmessage_score.x = (WIDTH - 2 - 10) / 2;
+    strmessage_score.y = (HEIGHT - 1) / 2 - 1; // 分数在消息下方
     ImageBoard_Draw_role(&strmessage_score);
 
     // 显示提示信息
     const char *prompt = "Press Enter to exit";
-    ROLE strmessage = {true, 0, 0, STRMESSAGE,SCORE ,0, " "};
+    ROLE strmessage = {true, 0, 0, STRMESSAGE, Role_COLOR_WHITE, STOP, VALUE_MODE_STR, 0, ""};
+    strcpy(strmessage.role_message, prompt);
     strmessage.x = (WIDTH - 2 - strlen(prompt)) / 2;
     strmessage.y = (HEIGHT - 1) / 2 + 1; // 提示信息在消息下方
-    strcpy(strmessage.role_message, prompt);
     ImageBoard_Draw_role(&strmessage);
     // 刷新屏幕
     ShowImageBoard();
