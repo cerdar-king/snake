@@ -5,6 +5,7 @@
 #include <time.h>    // 时间相关函数，如 time、nanosleep 等
 #include <stdarg.h>  // 可变参数处理函数，如 va_list、va_start、va_end 等
 
+
 int WIDTH = 40;           // 宽度
 int HEIGHT = 20;          // 高度
 int BACK_G = COLOR_WHITE; // 背景颜色
@@ -91,38 +92,33 @@ ROLE score = {true, 0, 0, SCORE, Role_COLOR_WHITE, STOP, VALUE_MODE_INT, 0, "Sco
 
 int nTail;
 
-typedef struct ImageBoard
-{
-    enum eRole color; // 角色颜色对编号
-    char pixel;       // 角色字符
-} ImageBoard;
+WINDOW *win; // 定义窗口指针，用于 ncurses 库的窗口操作
 
-ImageBoard *ImageF; //    游戏画面
 
 void Over(const char *message, int exit_code);
 void sleep_ms(int milliseconds);
-void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...);
 void read_config(const char *filename);
+
+void Init_ImageBorder(); // 初始化游戏图形框架
+void Draw_role(ROLE *point);
+void Image_draw();
+
+
 void generateFruit();
 void Setup();
-void ImageBoard_clear();
-void ImageBoard_Draw_role(ROLE *point);
-void ImageBoard_init();
-void ImageBoard_draw();
-void ShowImageBoard();
 void Input();
 void Logic();
 
 int main()
 {
+
     read_config("data.bin");
 
     Setup(); // 初始化
 
     while (1)
     { // 游戏循环
-        ImageBoard_draw();
-        ShowImageBoard(); // 画图
+        Image_draw();
 
         Input(); // 输入
         Logic(); // 逻辑
@@ -133,10 +129,13 @@ int main()
             speed = 30;
         sleep_ms(speed); // 等待
     }
-    free(ImageF);
     endwin(); // 结束
     return 0;
 }
+
+
+
+
 // 从配置文件读取宽度、高度和背景色
 /*void read_config(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -218,23 +217,35 @@ void Setup()
     snake_head.y = (HEIGHT - 2) / 2; //  蛇头的初始位置
     nTail = 0;                       //  初始化蛇的长度
     generateFruit();                 //  生成水果
-    score.x = 0;
-    score.y = HEIGHT - 1;
+    score.x = 1;
+    score.y = HEIGHT-2;
     score.value = 0; //  初始化分数
 
-    // 初始化屏幕
-    initscr(); //  初始化屏幕
+    Init_ImageBorder(); //  初始化游戏图形框架
 
-    start_color();        //  开启颜色
-    use_default_colors(); //  使用默认颜色
-    clear();              //  清屏
-    curs_set(0);          //  隐藏光标
-    noecho();             //  输入不显示在屏幕上
+}
+void Init_ImageBorder() // 初始化游戏图形框架
+{
+    // 设置窗口大小
+    initscr(); // 初始化窗口
+    win = newwin(HEIGHT, WIDTH, 0, 0); // 创建新窗口
+    keypad(win, TRUE); // 启用键盘输入
 
     // 初始化游戏输入
+    curs_set(0);          //  隐藏光标
+    noecho();             //  输入不显示在屏幕上
     cbreak();              //  禁用行缓冲
     nodelay(stdscr, TRUE); // 设置非阻塞输入模式
 
+    // 初始化颜色
+    if (has_colors() == FALSE)
+    {
+        endwin();
+        printf("Your terminal does not support color\n");
+        exit(1);
+    }
+    start_color();        //  开启颜色
+    use_default_colors(); //  使用默认颜色
     // 根据不同的背景颜色，初始化角色颜色对
     init_pair(Role_COLOR_BLACK, COLOR_BLACK, BACK_G);
     init_pair(Role_COLOR_RED, COLOR_RED, BACK_G);
@@ -245,42 +256,9 @@ void Setup()
     init_pair(Role_COLOR_MAGENTA, COLOR_MAGENTA, BACK_G);
     init_pair(Role_COLOR_CYAN, COLOR_CYAN, BACK_G);
 
-    ImageBoard_init();
+    clear();              //  清屏
 }
-void ImageBoard_init()
-{
-    ImageF = (ImageBoard *)calloc(WIDTH * (HEIGHT + 1), sizeof(ImageBoard));
-    if (ImageF == NULL)
-    {
-        // perror("Memory allocation failed");
-        // exit(1);
-        Over("Memory allocation failed", 1);
-    }
-}
-void ImageBoard_clear()
-{
-    for (int i = 0; i < WIDTH * (HEIGHT + 1); i++)
-    {
-        ImageF[i].color = 0;
-        ImageF[i].pixel = ' ';
-    }
-    for (int i = 0; i < HEIGHT; i++)
-    {
-        ImageF[i * WIDTH].color = WALL; // 左边界
-        ImageF[i * WIDTH].pixel = '#';
-
-        ImageF[i * WIDTH + WIDTH - 1].color = WALL; // 右边界
-        ImageF[i * WIDTH + WIDTH - 1].pixel = '#';
-    }
-    for (int j = 0; j < WIDTH; j++)
-    {
-        ImageF[j].color = WALL; // 上边界
-        ImageF[j].pixel = '#';
-        ImageF[(HEIGHT - 1) * WIDTH + j].color = WALL; // 下边界
-        ImageF[(HEIGHT - 1) * WIDTH + j].pixel = '#';
-    }
-}
-void ImageBoard_Draw_role(ROLE *point) // 按照ROLE结构体中的位置,颜色,和字符信息在ImageF中绘制
+void Draw_role(ROLE *point) // 按照ROLE结构体中的位置,颜色,和字符信息在ImageF中绘制
 {
 
     if (point->is_show == true)
@@ -288,26 +266,25 @@ void ImageBoard_Draw_role(ROLE *point) // 按照ROLE结构体中的位置,颜色
         switch (point->value_mode)
         {
         case VALUE_MODE_INT:
-            int len = snprintf(NULL, 0, "%s%d", point->role_message, point->value);
-            char *str = (char *)malloc(len + 1);
-            snprintf(str, len + 1, "%s%d", point->role_message, point->value);
-            for (int i = 0; i < strlen(str); i++)
-            {
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].color = point->color;
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].pixel = str[i];
-            }
-            free(str);
+                int len = snprintf(NULL, 0, "%s%d", point->role_message, point->value);
+                char *str = (char *)malloc(len + 1);
+                snprintf(str, len + 1, "%s%d", point->role_message, point->value);
+        
+                wattron(win,COLOR_PAIR(point->color));
+                mvwaddstr(win,point->y + 1, point->x + 1, str);
+                wattroff(win,COLOR_PAIR(point->color));
+        
+                free(str);
             break;
         case VALUE_MODE_CHAR:
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].color = point->color;
-            ImageF[(point->y + 1) * WIDTH + (point->x + 1)].pixel = (char)(point->value);
+            wattron(win,COLOR_PAIR(point->color));
+            mvwaddch(win,point->y + 1, point->x + 1, point->value);
+            wattroff(win,COLOR_PAIR(point->color));
             break;
         case VALUE_MODE_STR:
-            for (int i = 0; i < strlen(point->role_message); i++)
-            {
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].color = point->color;
-                ImageF[(point->y + 1) * WIDTH + (point->x + 1 + i)].pixel = point->role_message[i];
-            }
+            wattron(win,COLOR_PAIR(point->color));
+            mvwaddstr(win,point->y + 1, point->x + 1, point->role_message);
+            wattroff(win,COLOR_PAIR(point->color));
             break;
         default:
             break;
@@ -316,37 +293,33 @@ void ImageBoard_Draw_role(ROLE *point) // 按照ROLE结构体中的位置,颜色
     return;
 }
 
-void ImageBoard_draw()
+void Image_draw()
 {
-    ImageBoard_clear();
 
-    ImageBoard_Draw_role(&snake_head);
+    wresize(win, HEIGHT, WIDTH);
+    mvwin(win, 0, 0);
+
+    wclear(win);
+    wattron(win,COLOR_PAIR(Role_COLOR_GREEN));
+    wborder (win,'#', '#', '#', '#', '#', '#', '#', '#'); // 绘制边框
+    wattroff(win,COLOR_PAIR(Role_COLOR_GREEN));
+
+    wattron(win,COLOR_PAIR(Role_COLOR_YELLOW));
+    mvwaddstr(win,0,3,"Snake Game");
+    wattroff(win,COLOR_PAIR(Role_COLOR_YELLOW));
+
+    Draw_role(&snake_head);
     for (int i = 0; i < nTail; i++)
     {
-        ImageBoard_Draw_role(&snake_tail[i]);
+        Draw_role(&snake_tail[i]);
     }
-    ImageBoard_Draw_role(&flower);
-    ImageBoard_Draw_role(&score);
+    Draw_role(&flower);
+    Draw_role(&score);
+    wrefresh(win);
+
+    //refresh();
 }
 
-void ShowImageBoard() // 显示图像板根据绘图板的色彩和像素信息在屏幕上显示内容
-{
-    clear(); // 清屏
-
-    // 遍历绘图板并显示内容
-    for (int i = 0; i <= HEIGHT; i++)
-    {
-        for (int j = 0; j < WIDTH; j++)
-        {
-            // 根据绘图板的色彩和像素信息在屏幕上显示内容
-            int index = i * WIDTH + j;
-
-            DrawColorMvprintw(ImageF[index].color, i, j, "%c", ImageF[index].pixel);
-        }
-    }
-
-    refresh(); // 刷新屏幕
-}
 
 void Input()
 { //  输入
@@ -420,11 +393,11 @@ void Logic()
     if (snake_head.x >= WIDTH - 2)
         snake_head.x = 0;
     else if (snake_head.x < 0)
-        snake_head.x = WIDTH - 2;
+        snake_head.x = WIDTH - 3;
     if (snake_head.y >= HEIGHT - 2)
         snake_head.y = 0;
     else if (snake_head.y < 0)
-        snake_head.y = HEIGHT - 2;
+        snake_head.y = HEIGHT - 3;
 
     // 如果蛇头碰到蛇身，游戏结束
     for (int i = 0; i < nTail; i++)
@@ -445,35 +418,6 @@ void Logic()
         generateFruit();
         nTail++;
     }
-}
-// 彩色画笔函数，用于在指定位置以指定颜色绘制文本
-// 参数 color_pair: 颜色对编号，用于指定文本的颜色
-// 参数 x, y: 文本绘制的坐标位置，x 为行号，y 为列号
-// 参数 fmt: 格式字符串，描述文本的格式
-// ...: 可变参数列表，包含格式字符串中的具体值
-void DrawColorMvprintw(int color_pair, int x, int y, const char *fmt, ...)
-{
-    // 初始化可变参数列表
-    va_list args;
-    va_start(args, fmt);
-
-    // 设置文本颜色
-    attron(COLOR_PAIR(color_pair));
-
-    // 缓存区用于存储格式化后的文本
-    char buffer[256];
-
-    // 根据格式字符串和可变参数生成实际文本
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-
-    // 在指定位置绘制文本
-    mvprintw(x, y, "%s", buffer);
-
-    // 移除文本颜色设置，恢复默认颜色
-    attroff(COLOR_PAIR(color_pair));
-
-    // 解除可变参数列表的初始化
-    va_end(args);
 }
 // 定义一个函数来替换 usleep
 void sleep_ms(int milliseconds)
@@ -508,8 +452,19 @@ void Over(const char *message, int exit_code)
 {
     // 清空绘图板
 
-    ImageBoard_clear();
+    wclear(win);
     // 显示游戏结束信息
+    wresize(win, HEIGHT, WIDTH);
+    mvwin(win, 0, 0);
+
+    wclear(win);
+    wattron(win,COLOR_PAIR(Role_COLOR_GREEN));
+    wborder (win,'#', '#', '#', '#', '#', '#', '#', '#'); // 绘制边框
+    wattroff(win,COLOR_PAIR(Role_COLOR_GREEN));
+
+    wattron(win,COLOR_PAIR(Role_COLOR_YELLOW));
+    mvwaddstr(win,0,3,"Snake Game");
+    wattroff(win,COLOR_PAIR(Role_COLOR_YELLOW));
 
     // 在窗口中显示退出信息
     if (message != NULL)
@@ -518,13 +473,13 @@ void Over(const char *message, int exit_code)
         strmessage_message.x = (WIDTH - 4 - strlen(message)) / 2;
         strmessage_message.y = (HEIGHT - 1) / 2 - 3; // 消息在屏幕中间
         strcpy(strmessage_message.role_message, message);
-        ImageBoard_Draw_role(&strmessage_message);
+        Draw_role(&strmessage_message);
     }
 
     ROLE strmessage_score = {true, 0, 0, SCORE, Role_COLOR_RED, STOP, VALUE_MODE_INT, score.value, "Score:"};
     strmessage_score.x = (WIDTH - 2 - 10) / 2;
     strmessage_score.y = (HEIGHT - 1) / 2 - 1; // 分数在消息下方
-    ImageBoard_Draw_role(&strmessage_score);
+    Draw_role(&strmessage_score);
 
     // 显示提示信息
     const char *prompt = "Press Enter to exit";
@@ -532,9 +487,9 @@ void Over(const char *message, int exit_code)
     strcpy(strmessage.role_message, prompt);
     strmessage.x = (WIDTH - 2 - strlen(prompt)) / 2;
     strmessage.y = (HEIGHT - 1) / 2 + 1; // 提示信息在消息下方
-    ImageBoard_Draw_role(&strmessage);
+    Draw_role(&strmessage);
     // 刷新屏幕
-    ShowImageBoard();
+    wrefresh(win);
     strmessage.is_show = false;
 
     // 等待用户按下回车键
@@ -542,13 +497,12 @@ void Over(const char *message, int exit_code)
     while (getch() != '\n')
         ;
 
-    // 释放动态分配的内存
-    if (ImageF != NULL)
+    // 清除窗口
+    if(win != NULL)
     {
-        free(ImageF);
-        ImageF = NULL; // 避免重复释放
+        delwin(win);
+        win = NULL;
     }
-
     // 恢复终端模式
     if (!isendwin())
     {
@@ -558,3 +512,4 @@ void Over(const char *message, int exit_code)
     // 退出程序
     exit(exit_code);
 }
+
