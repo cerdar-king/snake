@@ -1,0 +1,161 @@
+如果你希望子节点是一条单独的链表连接在父节点下，可以通过在父节点中添加一个指向子节点链表头的指针来实现。这样，每个父节点都可以拥有一个独立的子节点链表，而子节点链表本身也可以是一个双向链表。
+
+---
+
+### **改进后的结构设计**
+
+#### **1. 统一节点结构**
+将主节点和子节点整合为一个通用的 `ROLE_NODE` 结构，同时在每个节点中添加一个 `child_head` 指针，用于指向子节点链表的头。
+
+```c
+typedef struct RoleNode
+{
+    ROLE role;                                 // 角色的外在表现形式
+    void (*logic_func)(struct RoleNode *self); // 角色的逻辑处理函数指针
+
+    // 链表链接纽带
+    struct RoleNode *next;       // 下一个兄弟节点
+    struct RoleNode *prev;       // 上一个兄弟节点
+    struct RoleNode *child_head; // 子节点链表的头
+    struct RoleNode *parent;     // 父节点
+} ROLE_NODE;
+```
+
+---
+
+### **操作示例**
+
+#### **2. 添加子节点**
+为某个父节点添加子节点时，将子节点插入到父节点的 `child_head` 链表中。
+
+```c
+void addChildNode(ROLE_NODE *parent, ROLE_NODE *child) {
+    if (parent == NULL || child == NULL) {
+        return;
+    }
+
+    child->parent = parent; // 设置子节点的父节点
+
+    if (parent->child_head == NULL) {
+        parent->child_head = child; // 如果父节点没有子节点，则直接添加
+    } else {
+        ROLE_NODE *current = parent->child_head;
+        while (current->next != NULL) {
+            current = current->next; // 找到子节点链表的末尾
+        }
+        current->next = child; // 添加到子节点链表末尾
+        child->prev = current;
+    }
+}
+```
+
+---
+
+#### **3. 遍历主节点和子节点**
+通过递归的方式遍历主节点和子节点。
+
+```c
+void traverseNodes(ROLE_NODE *head, void (*callback)(ROLE_NODE *node)) {
+    ROLE_NODE *current = head;
+    while (current != NULL) {
+        if (callback != NULL) {
+            callback(current); // 执行回调函数
+        }
+
+        // 遍历子节点链表
+        if (current->child_head != NULL) {
+            traverseNodes(current->child_head, callback);
+        }
+
+        current = current->next; // 移动到下一个兄弟节点
+    }
+}
+```
+
+---
+
+#### **4. 销毁节点**
+递归销毁主节点和子节点。
+
+```c
+void destroyNode(ROLE_NODE *node) {
+    if (node == NULL) {
+        return;
+    }
+
+    // 递归销毁子节点
+    ROLE_NODE *child = node->child_head;
+    while (child != NULL) {
+        ROLE_NODE *nextChild = child->next;
+        destroyNode(child);
+        child = nextChild;
+    }
+
+    // 销毁当前节点
+    free(node);
+}
+
+void destroyAllNodes(ROLE_NODE *head) {
+    ROLE_NODE *current = head;
+    while (current != NULL) {
+        ROLE_NODE *next = current->next;
+        destroyNode(current);
+        current = next;
+    }
+}
+```
+
+---
+
+#### **5. 示例：绘制角色**
+使用统一的遍历函数绘制所有节点。
+
+```c
+void drawNodeCallback(ROLE_NODE *node) {
+    Draw_role(&node->role); // 绘制角色
+}
+
+void drawAllNodes() {
+    traverseNodes(head, drawNodeCallback);
+}
+```
+
+---
+
+### **完整示例**
+
+以下是整合后的主要代码：
+
+```c
+typedef struct RoleNode
+{
+    ROLE role;                                 // 角色的外在表现形式
+    void (*logic_func)(struct RoleNode *self); // 角色的逻辑处理函数指针
+
+    struct RoleNode *next;       // 下一个兄弟节点
+    struct RoleNode *prev;       // 上一个兄弟节点
+    struct RoleNode *child_head; // 子节点链表的头
+    struct RoleNode *parent;     // 父节点
+} ROLE_NODE;
+
+// 添加子节点
+void addChildNode(ROLE_NODE *parent, ROLE_NODE *child);
+
+// 遍历节点
+void traverseNodes(ROLE_NODE *head, void (*callback)(ROLE_NODE *node));
+
+// 销毁节点
+void destroyNode(ROLE_NODE *node);
+void destroyAllNodes(ROLE_NODE *head);
+
+// 示例：绘制角色
+void drawNodeCallback(ROLE_NODE *node);
+void drawAllNodes();
+```
+
+---
+
+### **总结**
+- 通过在每个节点中添加 `child_head` 指针，可以实现每个父节点拥有一个独立的子节点链表。
+- 主节点和子节点的操作逻辑统一，代码更加简洁和易于维护。
+- 递归遍历和销毁函数可以处理任意深度的父子关系链表。
